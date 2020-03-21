@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class FrameBuffer
 {
-    private int m_Width;
-    private int m_Height;
+    public int m_Width;
+    public int m_Height;
     private Texture2D m_ColorAttachment0;
     private Texture2D m_DepthBuffer;
 
@@ -29,6 +29,11 @@ public class FrameBuffer
     public void SetColor(int x, int y, Color color)
     {
         m_ColorAttachment0.SetPixel(x, y, color);
+    }
+
+    public void SetDepth(int x, int y, float depth)
+    {
+        m_DepthBuffer.SetPixel(x, y, new Color(depth,0,0));
     }
 
     public Texture2D GetPixels()

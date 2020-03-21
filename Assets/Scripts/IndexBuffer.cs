@@ -4,20 +4,20 @@ using UnityEngine;
 
 public class IndexBuffer
 {
-    private List<int> m_Index;
-
-    public IndexBuffer()
-    {
-        m_Index = new List<int>();
-    }
-
-    public void AddIndex(int index)
-    {
-        m_Index.Add(index);
-    }
+    private List<int> m_Index = new List<int>();
 
     public void AddIndices(IEnumerable<int> indices)
     {
         m_Index.AddRange(indices);
+    }
+
+    public int this[int i]
+    {
+        get { return m_Index[i]; }
+    }
+
+    public int Count()
+    {
+        return m_Index.Count;
     }
 }

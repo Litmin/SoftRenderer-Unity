@@ -10,12 +10,13 @@ public class SoftRenderer : MonoBehaviour
     private CommandBuffer m_Cmd;
     private Material m_BlitMaterial;
     private Mesh m_FullScreenTriangle;
+    private Mesh[] m_Meshes;
 
-    private FrameBuffer m_FrameBuffer;
+    private Rasterizer m_Rasterizer;
 
     private void InitRenderer()
     {
-        m_FrameBuffer = new FrameBuffer(Screen.width, Screen.height);
+        m_Rasterizer = new Rasterizer();
 
         m_Camera = GetComponent<Camera>();
         
@@ -47,23 +48,11 @@ public class SoftRenderer : MonoBehaviour
 
     private void Render()
     {
-        for(int i = 0;i < Screen.width;i++)
-        {
-            for(int j = 0;j < Screen.height;j++)
-            {
-                m_FrameBuffer.SetColor(i, j, Color.cyan);
-            }
-        }
+        
     }
 
     private void ReleaseRender()
     {
-        if (m_FrameBuffer != null)
-        {
-            m_FrameBuffer.Release();
-            m_FrameBuffer = null;
-        }
-
         if (m_BlitMaterial != null)
             Destroy(m_BlitMaterial);
         if (m_FullScreenTriangle != null)
@@ -76,9 +65,20 @@ public class SoftRenderer : MonoBehaviour
         }
     }
 
+    private void CollectMeshed()
+    {
+        MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();
+        m_Meshes = new Mesh[meshFilters.Length];
+        for(int i = 0;i < meshFilters.Length;i++)
+        {
+            m_Meshes[i] = meshFilters[i].mesh;
+        }
+    }
+
     private void Start()
     {
         InitRenderer();
+        CollectMeshed();
     }
 
     private void Update()

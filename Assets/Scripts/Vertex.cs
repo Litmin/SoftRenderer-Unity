@@ -4,9 +4,9 @@ using UnityEngine;
 
 public class Vertex 
 {
-    private Vector3 position;
-    private Vector2 uv;
-    private Vector3 normal;
+    public Vector3 position;
+    public Vector2 uv;
+    public Vector3 normal;
 
     public Vertex(Vector3 _position)
     {
