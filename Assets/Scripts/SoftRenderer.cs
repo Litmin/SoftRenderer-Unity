@@ -3,20 +3,39 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+// Unity中的向量是当成一行的矩阵
+// 世界空间和观察空间是左手坐标系
+// Unity中三角形方向是顺时针
 [RequireComponent(typeof(Camera))]
 public class SoftRenderer : MonoBehaviour
 {
+    struct BufferMeshMap
+    {
+        public int vertexBufferHandle;
+        public int indexBufferHandle;
+        public MeshFilter mesh;
+        public BufferMeshMap(int vertexBufferHandle, int indexBufferHandle, MeshFilter mesh)
+        {
+            this.vertexBufferHandle = vertexBufferHandle;
+            this.indexBufferHandle = indexBufferHandle;
+            this.mesh = mesh;
+        }
+    }
+
     private Camera m_Camera;
     private CommandBuffer m_Cmd;
     private Material m_BlitMaterial;
     private Mesh m_FullScreenTriangle;
-    private Mesh[] m_Meshes;
+    private MeshFilter[] m_Meshes;
+    private Light[] m_Lights;
 
     private Rasterizer m_Rasterizer;
+    private List<BufferMeshMap> m_Models;
 
     private void InitRenderer()
     {
-        m_Rasterizer = new Rasterizer();
+        m_Rasterizer = new Rasterizer(Screen.width, Screen.height);
+        m_Models = new List<BufferMeshMap>();
 
         m_Camera = GetComponent<Camera>();
         
@@ -41,14 +60,70 @@ public class SoftRenderer : MonoBehaviour
         
         // Init CommandBuffer
         m_Cmd = new CommandBuffer() { name = "RasterCmd" };
-        m_Cmd.SetGlobalTexture("_MainTex", m_FrameBuffer.GetPixels());
+        m_Cmd.SetGlobalTexture("_MainTex", m_Rasterizer.GetOutputTexture());
         m_Cmd.DrawMesh(m_FullScreenTriangle, Matrix4x4.identity, m_BlitMaterial);
         m_Camera.AddCommandBuffer(CameraEvent.AfterEverything, m_Cmd);
     }
 
+    private void LoadMesh()
+    {
+        foreach(var meshFilter in m_Meshes)
+        {
+            Mesh mesh = meshFilter.mesh;
+
+            int VBO = m_Rasterizer.GenVertexBuffer();
+            int IBO = m_Rasterizer.GenIndexBuffer();
+            m_Rasterizer.BindVertexBuffer(VBO);
+            m_Rasterizer.BindIndexBuffer(IBO);
+
+            Vector3[] vertices = mesh.vertices;
+            int[] indices = mesh.triangles;
+            Vector2[] uvs = mesh.uv;
+            Vector3[] normals = mesh.normals;
+            
+
+            Vertex[] myVertices = new Vertex[vertices.Length];
+            for(int i = 0;i < myVertices.Length;i++)
+            {
+                myVertices[i] = new Vertex(vertices[i], uvs[i], normals[i]);
+            }
+
+            m_Rasterizer.SetVertexBufferData(myVertices);
+            m_Rasterizer.SetIndexBufferData(indices);
+            m_Rasterizer.UnBindVertexBuffer();
+            m_Rasterizer.UnBindIndexBuffer();
+
+            m_Models.Add(new BufferMeshMap(VBO, IBO, meshFilter));
+        }
+    }
+
     private void Render()
     {
-        
+        // Clear
+        m_Rasterizer.Clear(ClearMask.COLOR | ClearMask.DEPTH);
+
+        // View 
+        m_Rasterizer.SetView(m_Camera.transform.worldToLocalMatrix);
+
+        // Projection
+        if(m_Camera.orthographic)
+        {
+            Matrix4x4 orthographicProjection = m_Rasterizer.Orthographic(m_Camera.nearClipPlane, m_Camera.farClipPlane, m_Camera.orthographicSize * 2, m_Camera.aspect);
+            m_Rasterizer.SetProjection(orthographicProjection);
+        }
+        else
+        {
+            Matrix4x4 perspectiveProjection = m_Rasterizer.Perspective(m_Camera.nearClipPlane, m_Camera.farClipPlane, m_Camera.fieldOfView, m_Camera.aspect);
+            m_Rasterizer.SetProjection(perspectiveProjection);
+        }
+
+        foreach (var model in m_Models)
+        {
+            m_Rasterizer.BindVertexBuffer(model.vertexBufferHandle);
+            m_Rasterizer.BindIndexBuffer(model.indexBufferHandle);
+            m_Rasterizer.SetModel(model.mesh.transform.localToWorldMatrix);
+            m_Rasterizer.DrawElements(PrimitiveType.LINES);
+        }
     }
 
     private void ReleaseRender()
@@ -65,20 +140,31 @@ public class SoftRenderer : MonoBehaviour
         }
     }
 
-    private void CollectMeshed()
+    private void CollectMeshes()
     {
-        MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();
-        m_Meshes = new Mesh[meshFilters.Length];
-        for(int i = 0;i < meshFilters.Length;i++)
-        {
-            m_Meshes[i] = meshFilters[i].mesh;
-        }
+        m_Meshes = GetComponentsInChildren<MeshFilter>();
+    }
+
+    private void CollectLights()
+    {
+        m_Lights = GetComponentsInChildren<Light>();
     }
 
     private void Start()
     {
         InitRenderer();
-        CollectMeshed();
+        CollectMeshes();
+        CollectLights();
+        LoadMesh();
+
+        // 测试向量是行矩阵还是列矩阵
+        //Vector3 point = new Vector3(1, 1, 2);
+        //Matrix4x4 matrix = new Matrix4x4(new Vector4(1, 0, 0, 0),
+        //                                 new Vector4(0, 1, 0, 0),
+        //                                 new Vector4(0, 0, 1, 1),
+        //                                 new Vector4(0, 0, 0, 0));
+        //point = matrix.MultiplyPoint(point);
+        //Debug.Log(point);
     }
 
     private void Update()

@@ -15,6 +15,7 @@ public class FrameBuffer
         m_Height = height;
 
         m_ColorAttachment0 = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        m_ColorAttachment0.name = "ColorAttachment0";
         m_DepthBuffer = new Texture2D(width, height, TextureFormat.RFloat, false);
     }
 
@@ -31,12 +32,18 @@ public class FrameBuffer
         m_ColorAttachment0.SetPixel(x, y, color);
     }
 
+    public void Apply()
+    {
+        m_ColorAttachment0.Apply();
+        m_DepthBuffer.Apply();
+    }
+
     public void SetDepth(int x, int y, float depth)
     {
         m_DepthBuffer.SetPixel(x, y, new Color(depth,0,0));
     }
 
-    public Texture2D GetPixels()
+    public Texture2D GetOutputTexture()
     {
         return m_ColorAttachment0;
     }

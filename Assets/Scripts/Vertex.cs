@@ -7,6 +7,7 @@ public class Vertex
     public Vector3 position;
     public Vector2 uv;
     public Vector3 normal;
+    public Color color;
 
     public Vertex(Vector3 _position)
     {
@@ -24,5 +25,13 @@ public class Vertex
         position = _position;
         uv = _uv;
         normal = _normal;
+    }
+
+    public Vertex(Vector3 _position, Vector2 _uv, Vector3 _normal, Color _color)
+    {
+        position = _position;
+        uv = _uv;
+        normal = _normal;
+        color = _color;
     }
 }
