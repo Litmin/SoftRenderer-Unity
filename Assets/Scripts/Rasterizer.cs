@@ -323,7 +323,7 @@ public class Rasterizer
         Vector2Int bboxMax = new Vector2Int((int)(Mathf.Max(Mathf.Max(v0_screen.x, v1_screen.x), v2_screen.x) + 0.5f),
                                             (int)(Mathf.Max(Mathf.Max(v0_screen.y, v1_screen.y), v2_screen.y) + 0.5f));
 
-        // Edge Function
+        // Edge Function 经过投影的z用来做Clip，其他属性插值也会使用
         for(int i = bboxMin.x;i < bboxMax.x;i++)
         {
             for(int j = bboxMin.y;j < bboxMax.y;j++)
@@ -331,10 +331,30 @@ public class Rasterizer
                 if(IsInsideTriangle(i + 0.5f ,j + 0.5f, v0_screen, v1_screen, v2_screen))
                 {
                     m_FrameBuffer.SetColor(i, j, Color.yellow);
-                    
+                    // 计算重心坐标
+                    Vector3 barycentricCoordinate = BarycentricCoordinate(i + 0.5f, j + 0.5f, v0_screen, v1_screen, v2_screen);
+
+                    //计算这个像素的深度值
+
+                    // If so, use the following code to get the interpolated z value.
+                    //auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
+                    //float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());  // 插值后的观察空间中的z[n,f]
+                    //float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w(); // 插值后的裁剪空间的z[-1,1]
+                    //z_interpolated *= w_reciprocal;
+                    // 当前像素的深度,v0_NDC存储的是观察空间中z的倒数的函数，所以在屏幕空间是线性的，直接使用重心坐标插值
+                    float z = v0_NDC.z * barycentricCoordinate.x + v1_NDC.z * barycentricCoordinate.y + v2_NDC.z * barycentricCoordinate.z;
+
                     // Early-Z :)
+                    // 存储到Depth Buffer，从[-1,1]变换到[0,1]
+                    float z01 = (z + 1) / 2f;
+                    if (z > m_FrameBuffer.GetDepth(i, j))
+                        continue;
+                    else
+                        m_FrameBuffer.SetDepth(i, j, z01);
 
                     // Vertex Shader
+                    // 插值顶点属性：颜色、法线、UV
+                    //Vector2 uv = 
 
                     // Fragment Shader
 
@@ -368,6 +388,11 @@ public class Rasterizer
             return true;
         else
             return false;
+    }
+
+    private Vector3 BarycentricCoordinate(float x, float y, Vector3 v0, Vector3 v1, Vector3 v2)
+    {
+        return Vector3.zero;
     }
 
     // Bresenham's line algorithm

@@ -38,6 +38,11 @@ public class FrameBuffer
         m_DepthBuffer.Apply();
     }
 
+    public float GetDepth(int x, int y)
+    {
+        return m_DepthBuffer.GetPixel(x, y).r;
+    }
+
     public void SetDepth(int x, int y, float depth)
     {
         m_DepthBuffer.SetPixel(x, y, new Color(depth,0,0));
