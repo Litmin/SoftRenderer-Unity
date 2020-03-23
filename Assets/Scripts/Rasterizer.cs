@@ -209,17 +209,10 @@ public class Rasterizer
 
     private void WireFrameTriangle(Vertex v0, Vertex v1, Vertex v2)
     {
-        // MVP,Unity中世界空间和观察空间是左手坐标系，这里转成右手
-        Vector3 v0_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position));
-        Vector3 v1_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position));
-        Vector3 v2_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position));
-        //v0_NDC.z = -v0_NDC.z;
-        //v1_NDC.z = -v1_NDC.z;
-        //v2_NDC.z = -v2_NDC.z;
-        v0_NDC = m_Projection.MultiplyPoint(v0_NDC);
-        v1_NDC = m_Projection.MultiplyPoint(v1_NDC);
-        v2_NDC = m_Projection.MultiplyPoint(v2_NDC);
-
+        // MVP
+        Vector3 v0_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position)));
+        Vector3 v1_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position)));
+        Vector3 v2_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position)));
 
         // Clip
         if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1
@@ -227,13 +220,14 @@ public class Rasterizer
             || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1)
             return;
 
-        // Cull,Unity中三角形顺时针为正面,不管在左手坐标系还是右手坐标系，叉乘向量的方向都由右手定则确定，也就是叉乘得到的向量是同一个向量，只不过在不同坐标系中的表示不同
+        // Cull,Unity中三角形顺时针为正面,向量叉乘的方向在右手坐标系中使用右手定则确定，在左手坐标系中使用左手定则确定。
+        // 这里需要注意不管是在右手坐标系还是左手坐标系，叉乘向量的数值结果是一样的，只不过表示的绝对向量方向不同，Unity中是左手坐标系，遵循左手定则。
         if (m_CullType == CullType.Back)
         {
             Vector3 v0v1 = v1_NDC - v0_NDC;
             Vector3 v0v2 = v2_NDC - v0_NDC;
 
-            if (Vector3.Cross(v0v1, v0v2).z < 0)
+            if (Vector3.Cross(v0v1, v0v2).z > 0)
                 return;
         }
         if(m_CullType == CullType.Front)
@@ -241,7 +235,7 @@ public class Rasterizer
             Vector3 v0v1 = v1_NDC - v0_NDC;
             Vector3 v0v2 = v2_NDC - v0_NDC;
 
-            if (Vector3.Cross(v0v1, v0v2).z > 0)
+            if (Vector3.Cross(v0v1, v0v2).z < 0)
                 return;
         }
 
@@ -288,16 +282,10 @@ public class Rasterizer
 
     private void RasterTriangle(Vertex v0, Vertex v1, Vertex v2)
     {
-        // MVP,Unity中世界空间和观察空间是左手坐标系，这里转成右手
-        Vector3 v0_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position));
-        Vector3 v1_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position));
-        Vector3 v2_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position));
-        v0_NDC.z = -v0_NDC.z;
-        v1_NDC.z = -v1_NDC.z;
-        v2_NDC.z = -v2_NDC.z;
-        v0_NDC = m_Projection.MultiplyPoint(v0_NDC);
-        v1_NDC = m_Projection.MultiplyPoint(v1_NDC);
-        v2_NDC = m_Projection.MultiplyPoint(v2_NDC);
+        // MVP
+        Vector3 v0_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position)));
+        Vector3 v1_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position)));
+        Vector3 v2_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position)));
 
         // Clip
         if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1
@@ -305,7 +293,8 @@ public class Rasterizer
             || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1)
             return;
 
-        // Cull,Unity中三角形顺时针为正面
+        // Cull,Unity中三角形顺时针为正面,向量叉乘的方向在右手坐标系中使用右手定则确定，在左手坐标系中使用左手定则确定。
+        // 这里需要注意不管是在右手坐标系还是左手坐标系，叉乘向量的数值结果是一样的，只不过表示的绝对向量方向不同，Unity中是左手坐标系，遵循左手定则。
         if (m_CullType == CullType.Back)
         {
             Vector3 v0v1 = v1_NDC - v0_NDC;
@@ -349,10 +338,10 @@ public class Rasterizer
 
                     // Fragment Shader
 
-                    foreach(var light in m_Lights)
-                    {
+                    //foreach(var light in m_Lights)
+                    //{
 
-                    }
+                    //}
 
 
                 }

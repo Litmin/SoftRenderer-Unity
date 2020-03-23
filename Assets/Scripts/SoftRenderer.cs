@@ -122,7 +122,7 @@ public class SoftRenderer : MonoBehaviour
             m_Rasterizer.BindVertexBuffer(model.vertexBufferHandle);
             m_Rasterizer.BindIndexBuffer(model.indexBufferHandle);
             m_Rasterizer.SetModel(model.mesh.transform.localToWorldMatrix);
-            m_Rasterizer.DrawElements(PrimitiveType.LINES);
+            m_Rasterizer.DrawElements(PrimitiveType.TRIANGLES);
         }
     }
 
