@@ -14,11 +14,13 @@ public class SoftRenderer : MonoBehaviour
         public int vertexBufferHandle;
         public int indexBufferHandle;
         public MeshFilter mesh;
-        public BufferMeshMap(int vertexBufferHandle, int indexBufferHandle, MeshFilter mesh)
+        public ModelProperty modelProperty;
+        public BufferMeshMap(int vertexBufferHandle, int indexBufferHandle, MeshFilter mesh, ModelProperty modelProperty)
         {
             this.vertexBufferHandle = vertexBufferHandle;
             this.indexBufferHandle = indexBufferHandle;
             this.mesh = mesh;
+            this.modelProperty = modelProperty;
         }
     }
 
@@ -93,7 +95,7 @@ public class SoftRenderer : MonoBehaviour
             m_Rasterizer.UnBindVertexBuffer();
             m_Rasterizer.UnBindIndexBuffer();
 
-            m_Models.Add(new BufferMeshMap(VBO, IBO, meshFilter));
+            m_Models.Add(new BufferMeshMap(VBO, IBO, meshFilter, meshFilter.GetComponent<ModelProperty>()));
         }
     }
 

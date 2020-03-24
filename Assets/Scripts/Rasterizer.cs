@@ -76,6 +76,13 @@ public class Rasterizer
     }
     #endregion
 
+    #region Shader
+    public void SetShader(MiaoShader<VertexOutput> shader)
+    {
+        m_CurShader = shader;
+    }
+    #endregion
+
     #region Transform
     public void SetModel(Matrix4x4 model)
     {
@@ -114,10 +121,6 @@ public class Rasterizer
                                                     new Vector4(0, 2 * near / height, 0, 0),
                                                     new Vector4(0, 0, (near + far) / (far - near), 1),
                                                     new Vector4(0, 0, -(2 * near * far) / (far - near), 0));
-        //Matrix4x4 perspectiveMatrix = new Matrix4x4(new Vector4(2 * near / width, 0, 0, 0),
-        //                                            new Vector4(0, 2 * near / height, 0, 0),
-        //                                            new Vector4(0, 0, (near + far) / (near - far), 1),
-        //                                            new Vector4(0, 0, -(2 * near * far) / (near - far), 0));
 
         return perspectiveMatrix;
     }
@@ -215,9 +218,9 @@ public class Rasterizer
         Vector3 v2_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position)));
 
         // Clip
-        if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1
-            || v1_NDC.x < -1 || v1_NDC.x > 1 || v1_NDC.y < -1 || v1_NDC.y > 1
-            || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1)
+        if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1 || v0_NDC.z < -1 || v0_NDC.z > 1
+         || v1_NDC.x < -1 || v1_NDC.x > 1 || v1_NDC.y < -1 || v1_NDC.y > 1 || v1_NDC.z < -1 || v1_NDC.z > 1
+         || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1 || v2_NDC.z < -1 || v2_NDC.z > 1)
             return;
 
         // Cull,Unity中三角形顺时针为正面,向量叉乘的方向在右手坐标系中使用右手定则确定，在左手坐标系中使用左手定则确定。
@@ -282,15 +285,23 @@ public class Rasterizer
 
     private void RasterTriangle(Vertex v0, Vertex v1, Vertex v2)
     {
-        // MVP
-        Vector3 v0_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position)));
-        Vector3 v1_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position)));
-        Vector3 v2_NDC = m_Projection.MultiplyPoint(m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position)));
+        // 模型变换和View变换
+        Vector3 v0_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position));
+        Vector3 v1_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position));
+        Vector3 v2_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position));
+        // 记录观察空间中的深度，Unity中向量和矩阵相乘直接就变换成三个分量的向量了
+        float v0_z_view = v0_NDC.z;
+        float v1_z_view = v1_NDC.z;
+        float v2_z_view = v2_NDC.z;
+        // 投影变换
+        v0_NDC = m_Projection.MultiplyPoint(v0_NDC);
+        v1_NDC = m_Projection.MultiplyPoint(v1_NDC);
+        v2_NDC = m_Projection.MultiplyPoint(v2_NDC);
 
         // Clip
-        if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1
-            || v1_NDC.x < -1 || v1_NDC.x > 1 || v1_NDC.y < -1 || v1_NDC.y > 1
-            || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1)
+        if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1 || v0_NDC.z < -1 || v0_NDC.z > 1
+         || v1_NDC.x < -1 || v1_NDC.x > 1 || v1_NDC.y < -1 || v1_NDC.y > 1 || v1_NDC.z < -1 || v1_NDC.z > 1
+         || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1 || v2_NDC.z < -1 || v2_NDC.z > 1)
             return;
 
         // Cull,Unity中三角形顺时针为正面,向量叉乘的方向在右手坐标系中使用右手定则确定，在左手坐标系中使用左手定则确定。
@@ -323,38 +334,41 @@ public class Rasterizer
         Vector2Int bboxMax = new Vector2Int((int)(Mathf.Max(Mathf.Max(v0_screen.x, v1_screen.x), v2_screen.x) + 0.5f),
                                             (int)(Mathf.Max(Mathf.Max(v0_screen.y, v1_screen.y), v2_screen.y) + 0.5f));
 
-        // Edge Function 经过投影的z用来做Clip，其他属性插值也会使用
         for(int i = bboxMin.x;i < bboxMax.x;i++)
         {
             for(int j = bboxMin.y;j < bboxMax.y;j++)
             {
-                if(IsInsideTriangle(i + 0.5f ,j + 0.5f, v0_screen, v1_screen, v2_screen))
+                // Edge Function 
+                if (IsInsideTriangle(i + 0.5f ,j + 0.5f, v0_screen, v1_screen, v2_screen))
                 {
-                    m_FrameBuffer.SetColor(i, j, Color.yellow);
                     // 计算重心坐标
                     Vector3 barycentricCoordinate = BarycentricCoordinate(i + 0.5f, j + 0.5f, v0_screen, v1_screen, v2_screen);
 
-                    //计算这个像素的深度值
+                    // 计算该像素在观察空间的深度值:观察空间中的z的倒数在屏幕空间是线性的，所以用重心坐标可以插值z的倒数，再进行转换求出该像素的观察空间中的深度
+                    float z_view = 1.0f / (barycentricCoordinate.x /  v0_z_view + barycentricCoordinate.y / v1_z_view + barycentricCoordinate.z / v2_z_view);
+                    // 插值投影后的z，首先投影后的z除以观察空间的z，用重心坐标插值后，再乘该像素观察空间的z
+                    float z_interpolated = z_view * (v0_NDC.z / v0_z_view * barycentricCoordinate.x + 
+                                                     v1_NDC.z / v1_z_view * barycentricCoordinate.y +
+                                                     v2_NDC.z / v2_z_view * barycentricCoordinate.z);
 
-                    // If so, use the following code to get the interpolated z value.
-                    //auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
-                    //float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());  // 插值后的观察空间中的z[n,f]
-                    //float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w(); // 插值后的裁剪空间的z[-1,1]
-                    //z_interpolated *= w_reciprocal;
-                    // 当前像素的深度,v0_NDC存储的是观察空间中z的倒数的函数，所以在屏幕空间是线性的，直接使用重心坐标插值
-                    float z = v0_NDC.z * barycentricCoordinate.x + v1_NDC.z * barycentricCoordinate.y + v2_NDC.z * barycentricCoordinate.z;
 
                     // Early-Z :)
                     // 存储到Depth Buffer，从[-1,1]变换到[0,1]
-                    float z01 = (z + 1) / 2f;
-                    if (z > m_FrameBuffer.GetDepth(i, j))
+                    float z01 = (z_interpolated + 1) / 2f;
+                    if (z01 > m_FrameBuffer.GetDepth(i, j))
                         continue;
                     else
                         m_FrameBuffer.SetDepth(i, j, z01);
 
-                    // Vertex Shader
                     // 插值顶点属性：颜色、法线、UV
-                    //Vector2 uv = 
+                    Vector2 uv = z_view * (v0.uv / v0_z_view * barycentricCoordinate.x +
+                                           v1.uv / v1_z_view * barycentricCoordinate.y +
+                                           v2.uv / v2_z_view * barycentricCoordinate.z);
+                    Vector3 normal = z_view * (v0.normal / v0_z_view * barycentricCoordinate.x +
+                                               v1.normal / v1_z_view * barycentricCoordinate.y +
+                                               v2.normal / v2_z_view * barycentricCoordinate.z);
+                    m_FrameBuffer.SetColor(i, j, new Color(uv.x,uv.x,uv.x));
+
 
                     // Fragment Shader
 
@@ -392,7 +406,23 @@ public class Rasterizer
 
     private Vector3 BarycentricCoordinate(float x, float y, Vector3 v0, Vector3 v1, Vector3 v2)
     {
-        return Vector3.zero;
+        Vector3 v0v1 = new Vector3(v1.x - v0.x, v1.y - v0.y, 0);
+        Vector3 v1v2 = new Vector3(v2.x - v1.x, v2.y - v1.y, 0);
+        Vector3 v2v0 = new Vector3(v0.x - v2.x, v0.y - v2.y, 0);
+
+
+        Vector3 v0p = new Vector3(x - v0.x, y - v0.y, 0);
+        Vector3 v1p = new Vector3(x - v1.x, y - v1.y, 0);
+        Vector3 v2p = new Vector3(x - v2.x, y - v2.y, 0);
+
+        // 因为v0v1v2,p的z坐标都是0，叉乘向量的x、y是0，直接取z当作模长
+        float area_v1v2p = Mathf.Abs(Vector3.Cross(v1v2, v1p).z) / 2;
+        float area_v2v0p = Mathf.Abs(Vector3.Cross(v2v0, v2p).z) / 2;
+        float area_v0v1p = Mathf.Abs(Vector3.Cross(v0v1, v0p).z) / 2;
+        float area_v0v1v2 = Mathf.Abs(Vector3.Cross(v0v1, v2v0).z) / 2;
+
+
+        return new Vector3(area_v1v2p / area_v0v1v2, area_v2v0p / area_v0v1v2, area_v0v1p / area_v0v1v2);
     }
 
     // Bresenham's line algorithm
