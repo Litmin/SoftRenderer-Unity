@@ -33,6 +33,7 @@ public class SoftRenderer : MonoBehaviour
 
     private Rasterizer m_Rasterizer;
     private List<BufferMeshMap> m_Models;
+    private BlinnPhongShader m_BlinnPhongShader;
 
     private void InitRenderer()
     {
@@ -72,6 +73,7 @@ public class SoftRenderer : MonoBehaviour
         foreach(var meshFilter in m_Meshes)
         {
             Mesh mesh = meshFilter.mesh;
+            ModelProperty property = meshFilter.GetComponent<ModelProperty>();
 
             int VBO = m_Rasterizer.GenVertexBuffer();
             int IBO = m_Rasterizer.GenIndexBuffer();
@@ -82,12 +84,24 @@ public class SoftRenderer : MonoBehaviour
             int[] indices = mesh.triangles;
             Vector2[] uvs = mesh.uv;
             Vector3[] normals = mesh.normals;
+            Vector4[] tangents = mesh.tangents;
+            Color[] colors = mesh.colors;
             
 
             Vertex[] myVertices = new Vertex[vertices.Length];
-            for(int i = 0;i < myVertices.Length;i++)
+            if(colors.Length > 0)
             {
-                myVertices[i] = new Vertex(vertices[i], uvs[i], normals[i]);
+                for(int i = 0;i < myVertices.Length;i++)
+                {
+                    myVertices[i] = new Vertex(vertices[i], uvs[i], normals[i], tangents[i], colors[i]);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < myVertices.Length; i++)
+                {
+                    myVertices[i] = new Vertex(vertices[i], uvs[i], normals[i], tangents[i], property.color);
+                }
             }
 
             m_Rasterizer.SetVertexBufferData(myVertices);
@@ -95,8 +109,13 @@ public class SoftRenderer : MonoBehaviour
             m_Rasterizer.UnBindVertexBuffer();
             m_Rasterizer.UnBindIndexBuffer();
 
-            m_Models.Add(new BufferMeshMap(VBO, IBO, meshFilter, meshFilter.GetComponent<ModelProperty>()));
+            m_Models.Add(new BufferMeshMap(VBO, IBO, meshFilter, property));
         }
+    }
+
+    private void CreateShader()
+    {
+        m_BlinnPhongShader = new BlinnPhongShader();
     }
 
     private void Render()
@@ -119,8 +138,20 @@ public class SoftRenderer : MonoBehaviour
             m_Rasterizer.SetProjection(perspectiveProjection);
         }
 
+        Global.ambientColor = new Color(0.1f, 0.1f, 0.1f);
+        // 使用Blinn Phong Shader
+        m_Rasterizer.SetShader(m_BlinnPhongShader);
+        m_BlinnPhongShader.viewPos = m_Camera.transform.position;
+
         foreach (var model in m_Models)
         {
+            // Blinn Phong光照模型需要的参数
+            m_BlinnPhongShader.albedoMap = model.modelProperty.albedo;
+            m_BlinnPhongShader.normalMap = model.modelProperty.normal;
+            m_BlinnPhongShader.ka = model.modelProperty.ka;
+            m_BlinnPhongShader.kd = model.modelProperty.kd;
+            m_BlinnPhongShader.ks = model.modelProperty.ks;
+
             m_Rasterizer.BindVertexBuffer(model.vertexBufferHandle);
             m_Rasterizer.BindIndexBuffer(model.indexBufferHandle);
             m_Rasterizer.SetModel(model.mesh.transform.localToWorldMatrix);
@@ -150,6 +181,7 @@ public class SoftRenderer : MonoBehaviour
     private void CollectLights()
     {
         m_Lights = GetComponentsInChildren<Light>();
+        m_Rasterizer.SetLights(m_Lights);
     }
 
     private void Start()
@@ -158,15 +190,7 @@ public class SoftRenderer : MonoBehaviour
         CollectMeshes();
         CollectLights();
         LoadMesh();
-
-        // 测试向量是行矩阵还是列矩阵
-        //Vector3 point = new Vector3(1, 1, 2);
-        //Matrix4x4 matrix = new Matrix4x4(new Vector4(1, 0, 0, 0),
-        //                                 new Vector4(0, 1, 0, 0),
-        //                                 new Vector4(0, 0, 1, 1),
-        //                                 new Vector4(0, 0, 0, 0));
-        //point = matrix.MultiplyPoint(point);
-        //Debug.Log(point);
+        CreateShader();
     }
 
     private void Update()

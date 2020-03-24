@@ -19,7 +19,7 @@ public class Rasterizer
 
     // Render State
     private CullType m_CullType = CullType.Back;
-    private MiaoShader<VertexOutput> m_CurShader;
+    private MiaoShader m_CurShader;
     private Light[] m_Lights;
 
 
@@ -77,9 +77,14 @@ public class Rasterizer
     #endregion
 
     #region Shader
-    public void SetShader(MiaoShader<VertexOutput> shader)
+    public void SetShader(MiaoShader shader)
     {
         m_CurShader = shader;
+    }
+
+    public void SetLights(Light[] lights)
+    {
+        m_Lights = lights;
     }
     #endregion
 
@@ -285,18 +290,19 @@ public class Rasterizer
 
     private void RasterTriangle(Vertex v0, Vertex v1, Vertex v2)
     {
-        // 模型变换和View变换
-        Vector3 v0_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v0.position));
-        Vector3 v1_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v1.position));
-        Vector3 v2_NDC = m_View.MultiplyPoint(m_Model.MultiplyPoint(v2.position));
-        // 记录观察空间中的深度，Unity中向量和矩阵相乘直接就变换成三个分量的向量了
-        float v0_z_view = v0_NDC.z;
-        float v1_z_view = v1_NDC.z;
-        float v2_z_view = v2_NDC.z;
+        // 模型变换:记录世界空间的坐标，计算光照时使用
+        Vector3 v0_world = m_Model.MultiplyPoint(v0.position);
+        Vector3 v1_world = m_Model.MultiplyPoint(v1.position);
+        Vector3 v2_world = m_Model.MultiplyPoint(v2.position);
+        // View变换:记录观察空间中的深度，Unity中向量和矩阵相乘直接就变换成三个分量的向量了
+        Vector3 v0_view = m_View.MultiplyPoint(v0_world);
+        Vector3 v1_view = m_View.MultiplyPoint(v1_world);
+        Vector3 v2_view = m_View.MultiplyPoint(v2_world);
         // 投影变换
-        v0_NDC = m_Projection.MultiplyPoint(v0_NDC);
-        v1_NDC = m_Projection.MultiplyPoint(v1_NDC);
-        v2_NDC = m_Projection.MultiplyPoint(v2_NDC);
+        Vector3 v0_NDC = m_Projection.MultiplyPoint(v0_view);
+        Vector3 v1_NDC = m_Projection.MultiplyPoint(v1_view);
+        Vector3 v2_NDC = m_Projection.MultiplyPoint(v2_view);
+       
 
         // Clip
         if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1 || v0_NDC.z < -1 || v0_NDC.z > 1
@@ -345,11 +351,11 @@ public class Rasterizer
                     Vector3 barycentricCoordinate = BarycentricCoordinate(i + 0.5f, j + 0.5f, v0_screen, v1_screen, v2_screen);
 
                     // 计算该像素在观察空间的深度值:观察空间中的z的倒数在屏幕空间是线性的，所以用重心坐标可以插值z的倒数，再进行转换求出该像素的观察空间中的深度
-                    float z_view = 1.0f / (barycentricCoordinate.x /  v0_z_view + barycentricCoordinate.y / v1_z_view + barycentricCoordinate.z / v2_z_view);
+                    float z_view = 1.0f / (barycentricCoordinate.x /  v0_view.z + barycentricCoordinate.y / v1_view.z + barycentricCoordinate.z / v2_view.z);
                     // 插值投影后的z，首先投影后的z除以观察空间的z，用重心坐标插值后，再乘该像素观察空间的z
-                    float z_interpolated = z_view * (v0_NDC.z / v0_z_view * barycentricCoordinate.x + 
-                                                     v1_NDC.z / v1_z_view * barycentricCoordinate.y +
-                                                     v2_NDC.z / v2_z_view * barycentricCoordinate.z);
+                    float z_interpolated = z_view * (v0_NDC.z / v0_view.z * barycentricCoordinate.x + 
+                                                     v1_NDC.z / v1_view.z * barycentricCoordinate.y +
+                                                     v2_NDC.z / v2_view.z * barycentricCoordinate.z);
 
 
                     // Early-Z :)
@@ -360,24 +366,47 @@ public class Rasterizer
                     else
                         m_FrameBuffer.SetDepth(i, j, z01);
 
-                    // 插值顶点属性：颜色、法线、UV
-                    Vector2 uv = z_view * (v0.uv / v0_z_view * barycentricCoordinate.x +
-                                           v1.uv / v1_z_view * barycentricCoordinate.y +
-                                           v2.uv / v2_z_view * barycentricCoordinate.z);
-                    Vector3 normal = z_view * (v0.normal / v0_z_view * barycentricCoordinate.x +
-                                               v1.normal / v1_z_view * barycentricCoordinate.y +
-                                               v2.normal / v2_z_view * barycentricCoordinate.z);
-                    m_FrameBuffer.SetColor(i, j, new Color(uv.x,uv.x,uv.x));
+                    // 插值顶点属性：颜色、uv、法线、副切线、世界坐标
+                    Color color = z_view * (v0.color / v0_view.z * barycentricCoordinate.x +
+                                            v1.color / v1_view.z * barycentricCoordinate.y +
+                                            v2.color / v2_view.z * barycentricCoordinate.z);
+                    Vector2 uv = z_view * (v0.uv / v0_view.z * barycentricCoordinate.x +
+                                           v1.uv / v1_view.z * barycentricCoordinate.y +
+                                           v2.uv / v2_view.z * barycentricCoordinate.z);
+                    Vector3 normal = z_view * (v0.normal / v0_view.z * barycentricCoordinate.x +
+                                               v1.normal / v1_view.z * barycentricCoordinate.y +
+                                               v2.normal / v2_view.z * barycentricCoordinate.z);
+                    Vector4 tangent = z_view * (v0.tangent / v0_view.z * barycentricCoordinate.x +
+                                                v1.tangent / v1_view.z * barycentricCoordinate.y +
+                                                v2.tangent / v2_view.z * barycentricCoordinate.z);
+                    Vector3 worldPos = z_view * (v0_world / v0_view.z * barycentricCoordinate.x +
+                                                 v1_world / v1_view.z * barycentricCoordinate.y +
+                                                 v2_world / v2_view.z * barycentricCoordinate.z);
 
+                    Color col = Color.black;
+                    if(m_CurShader != null)
+                    {
+                        m_CurShader.vertexColor = color;
+                        m_CurShader.uv = uv;
+                        m_CurShader.normal = normal;
+                        m_CurShader.tangent = tangent;
+                        
+                        if(m_CurShader is BlinnPhongShader)
+                        {
+                            BlinnPhongShader blinnPhongShader = (BlinnPhongShader)m_CurShader;
+                            blinnPhongShader.worldPos = worldPos;
+                            foreach (var light in m_Lights)
+                            {
+                                blinnPhongShader.lightColor = light.color;
+                                blinnPhongShader.lightIntensity = light.intensity;
 
-                    // Fragment Shader
+                                col += blinnPhongShader.FragmentShade();
+                            }
+                        }
 
-                    //foreach(var light in m_Lights)
-                    //{
+                    }
 
-                    //}
-
-
+                    m_FrameBuffer.SetColor(i, j, col);
                 }
             }
         }

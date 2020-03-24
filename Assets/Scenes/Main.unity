@@ -140,7 +140,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 150495524}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.99}
+  m_LocalPosition: {x: -6.95, y: 0, z: 0.99}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 832261860}
@@ -217,6 +217,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d3ecc3df318124a9e11698f1d6cf61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ka: 0
+  kd: 0
+  ks: 0
   color: {r: 0, g: 0, b: 0, a: 0}
   albedo: {fileID: 0}
   normal: {fileID: 0}
@@ -344,7 +347,7 @@ Camera:
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
-  orthographic: 1
+  orthographic: 0
   orthographic size: 1
   m_Depth: -1
   m_CullingMask:
@@ -515,6 +518,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d3ecc3df318124a9e11698f1d6cf61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ka: 0
+  kd: 0
+  ks: 0
   color: {r: 0, g: 0, b: 0, a: 0}
   albedo: {fileID: 0}
   normal: {fileID: 0}
@@ -530,6 +536,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d3ecc3df318124a9e11698f1d6cf61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ka: 0
+  kd: 0
+  ks: 0
   color: {r: 0, g: 0, b: 0, a: 0}
   albedo: {fileID: 0}
   normal: {fileID: 0}
@@ -561,7 +570,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1337618753}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3.55, y: 0, z: 1.4799995}
+  m_LocalPosition: {x: -0.03, y: 0, z: 1.4799995}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 832261860}
@@ -637,7 +646,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25d3ecc3df318124a9e11698f1d6cf61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  color: {r: 0, g: 0, b: 0, a: 0}
+  ka: 1
+  kd: 1
+  ks: 1
+  color: {r: 1, g: 0.8595643, b: 0, a: 1}
   albedo: {fileID: 0}
   normal: {fileID: 0}
 --- !u!1 &1341878264
