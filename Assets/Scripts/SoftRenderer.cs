@@ -137,8 +137,8 @@ public class SoftRenderer : MonoBehaviour
             Matrix4x4 perspectiveProjection = m_Rasterizer.Perspective(m_Camera.nearClipPlane, m_Camera.farClipPlane, m_Camera.fieldOfView, m_Camera.aspect);
             m_Rasterizer.SetProjection(perspectiveProjection);
         }
-
-        Global.ambientColor = new Color(0.1f, 0.1f, 0.1f);
+        
+        Global.ambientColor = new Color(0.212f, 0.227f, 0.259f);
         // 使用Blinn Phong Shader
         m_Rasterizer.SetShader(m_BlinnPhongShader);
         m_BlinnPhongShader.viewPos = m_Camera.transform.position;

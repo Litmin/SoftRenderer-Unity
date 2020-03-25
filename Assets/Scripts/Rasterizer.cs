@@ -386,6 +386,8 @@ public class Rasterizer
                     Color col = Color.black;
                     if(m_CurShader != null)
                     {
+                        m_CurShader.modelMatrix = m_Model;
+
                         m_CurShader.vertexColor = color;
                         m_CurShader.uv = uv;
                         m_CurShader.normal = normal;
@@ -399,6 +401,7 @@ public class Rasterizer
                             {
                                 blinnPhongShader.lightColor = light.color;
                                 blinnPhongShader.lightIntensity = light.intensity;
+                                blinnPhongShader.lightPos = light.transform.position;
 
                                 col += blinnPhongShader.FragmentShade();
                             }

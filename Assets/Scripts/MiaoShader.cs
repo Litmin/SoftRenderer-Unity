@@ -4,6 +4,7 @@ using UnityEngine;
 
 public abstract class MiaoShader
 {
+    public Matrix4x4 modelMatrix { get; set; }
     public Vector3 normal { get; set; }
     public Vector3 tangent { get; set; }
     public Vector2 uv { get; set; }
