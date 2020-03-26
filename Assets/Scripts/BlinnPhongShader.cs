@@ -54,7 +54,7 @@ public class BlinnPhongShader : MiaoShader
         else
         {
             Vector3 normal_NormalMap = Utility.ColorToVector3(Utility.tex2D(normalMap, uv));
-            normal_NormalMap = Utility.UnpackNormal(normal_NormalMap);
+            normal_NormalMap = Utility.UnpackNormal(normal_NormalMap).normalized;
 
             // 从切线空间变换到模型空间,使用切线和法线求出副切线，构建TBN坐标系
             Vector3 bitTangent = Vector3.Cross(normal, tangent).normalized;
@@ -74,7 +74,6 @@ public class BlinnPhongShader : MiaoShader
             Vector3 h = (-lightDir + viewDir).normalized;
             specular = Color.white * Mathf.Max(0, Mathf.Pow(Vector3.Dot(h, normal_NormalMap), ks)) / distance;
         }
-        return albedoColor;
         return ambient + diffuse + specular;
     }
 }
