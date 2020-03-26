@@ -7,4 +7,4 @@
     * Unity中的世界空间和观察空间都是左手坐标系<br>
     * Unity中三角形顶点顺序为顺时针的当作正面<br>
     * Unity中向量是行矩阵<br>
-    ![screenshot](https://github.com/Litmin/SoftRenderer-Unity/screenshot.png)
+    ![screenshot](https://github.com/Litmin/SoftRenderer-Unity/blob/master/screenshot.png)
