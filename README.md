@@ -4,7 +4,7 @@
 - 数学计算模型<br>
 - 加载纹理加载<br>
 需要注意的是：<br>
-- Unity中的世界空间和观察空间都是左手坐标系<br>
+- Unity中的世界空间是左手坐标系,观察空间是右手坐标系<br>
 - Unity中三角形顶点顺序为顺时针的当作正面<br>
 - Unity中向量是行矩阵<br>
     ![screenshot](https://github.com/Litmin/SoftRenderer-Unity/blob/master/screenshot.png)
