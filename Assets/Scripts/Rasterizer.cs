@@ -288,6 +288,115 @@ public class Rasterizer
         }
     }
 
+    enum ClipPlane
+    {
+        Near,
+        Far,
+        Left,
+        Right,
+        Top,
+        Bottom
+    }
+
+    private List<Vector4> ClipWithPlane(List<Vector4> vertices, ClipPlane clipPlane)
+    {
+        List<Vector4> clippedVertices = new List<Vector4>();
+
+        for(int i = 0;i < vertices.Count;++i)
+        {
+            int startIndex = i;
+            int endIndex = (i + 1 + vertices.Count) % vertices.Count;
+
+            // 边的起点
+            Vector4 startVertex = vertices[startIndex];
+            // 边的终点
+            Vector4 endVertex = vertices[endIndex];
+
+            bool startVertexIn = false;
+            bool endVertexIn = false;
+
+
+            switch(clipPlane)
+            {
+                case ClipPlane.Near:
+                    if (startVertex.z > -startVertex.w)
+                        startVertexIn = true;
+                    if (endVertex.z > -endVertex.w)
+                        endVertexIn = true;
+                    break;
+                case ClipPlane.Far:
+                    if (startVertex.z < startVertex.w)
+                        startVertexIn = true;
+                    if (endVertex.z < endVertex.w)
+                        endVertexIn = true;
+                    break;
+                case ClipPlane.Left:
+                    if (startVertex.x > -startVertex.w)
+                        startVertexIn = true;
+                    if (endVertex.x > -endVertex.w)
+                        endVertexIn = true;
+                    break;
+                case ClipPlane.Right:
+                    if (startVertex.x < startVertex.w)
+                        startVertexIn = true;
+                    if (endVertex.x < endVertex.w)
+                        endVertexIn = true;
+                    break;
+                case ClipPlane.Top:
+                    if (startVertex.y < startVertex.w)
+                        startVertexIn = true;
+                    if (endVertex.y < endVertex.w)
+                        endVertexIn = true;
+                    break;
+                case ClipPlane.Bottom:
+                    if (startVertex.y > -startVertex.w)
+                        startVertexIn = true;
+                    if (endVertex.y > -endVertex.w)
+                        endVertexIn = true;
+                    break;
+            }
+
+            // 如果这条边跟裁剪平面相交，就把交点添加到裁剪后的结果中
+            if(startVertexIn != endVertexIn)
+            {
+                float t = 0;
+                switch(clipPlane)
+                {
+                    case ClipPlane.Near:
+                        // 交点在 w=-z 这个平面上，所以交点的w和z的相反数相等
+                        t = (startVertex.w + startVertex.z) / (-(endVertex.z - startVertex.z) - (endVertex.w - startVertex.w));
+                        break;
+                    case ClipPlane.Far:
+                        t = (startVertex.w - startVertex.z) / ((endVertex.z - startVertex.z) - (endVertex.w - startVertex.w));
+                        break;
+                    case ClipPlane.Left:
+                        t = (startVertex.w + startVertex.x) / (-(endVertex.x - startVertex.x) - (endVertex.w - startVertex.w));
+                        break;
+                    case ClipPlane.Right:
+                        t = (startVertex.w - startVertex.x) / ((endVertex.x - startVertex.x) - (endVertex.w - startVertex.w));
+                        break;
+                    case ClipPlane.Top:
+                        t = (startVertex.w - startVertex.y) / ((endVertex.y - startVertex.y) - (endVertex.w - startVertex.w));
+                        break;
+                    case ClipPlane.Bottom:
+                        t = (startVertex.w + startVertex.y) / (-(endVertex.y - startVertex.y) - (endVertex.w - startVertex.w));
+                        break;
+                }
+
+                Vector4 intersection = Vector4.Lerp(startVertex, endVertex, t);
+                clippedVertices.Add(intersection);
+            }
+
+            // 如果这条边的终点在内侧，就把结果添加到裁剪后的结果中
+            if(endVertexIn)
+            {
+                clippedVertices.Add(endVertex);
+            }
+        }
+
+        return clippedVertices;
+    }
+
     private void RasterTriangle(Vertex v0, Vertex v1, Vertex v2)
     {
         // 模型变换:记录世界空间的坐标，计算光照时使用
@@ -295,121 +404,146 @@ public class Rasterizer
         Vector3 v1_world = m_Model.MultiplyPoint(v1.position);
         Vector3 v2_world = m_Model.MultiplyPoint(v2.position);
         // View变换:记录观察空间中的深度，Unity中向量和矩阵相乘直接就变换成三个分量的向量了
-        Vector3 v0_view = m_View.MultiplyPoint(v0_world);
-        Vector3 v1_view = m_View.MultiplyPoint(v1_world);
-        Vector3 v2_view = m_View.MultiplyPoint(v2_world);
-        // 投影变换
-        Vector3 v0_NDC = m_Projection.MultiplyPoint(v0_view);
-        Vector3 v1_NDC = m_Projection.MultiplyPoint(v1_view);
-        Vector3 v2_NDC = m_Projection.MultiplyPoint(v2_view);
-       
+        Vector4 v0_view = m_View.MultiplyPoint(v0_world);
+        Vector4 v1_view = m_View.MultiplyPoint(v1_world);
+        Vector4 v2_view = m_View.MultiplyPoint(v2_world);
+        v0_view.w = v1_view.w = v2_view.w = 1.0f;
 
-        // Clip
-        if (v0_NDC.x < -1 || v0_NDC.x > 1 || v0_NDC.y < -1 || v0_NDC.y > 1 || v0_NDC.z < -1 || v0_NDC.z > 1
-         || v1_NDC.x < -1 || v1_NDC.x > 1 || v1_NDC.y < -1 || v1_NDC.y > 1 || v1_NDC.z < -1 || v1_NDC.z > 1
-         || v2_NDC.x < -1 || v2_NDC.x > 1 || v2_NDC.y < -1 || v2_NDC.y > 1 || v2_NDC.z < -1 || v2_NDC.z > 1)
+        Vector4 v0_Clip = m_Projection * v0_view;
+        Vector4 v1_Clip = m_Projection * v1_view;
+        Vector4 v2_Clip = m_Projection * v2_view;
+
+        // Frustum Clip
+        List<Vector4> vertices = new List<Vector4> { v0_Clip, v1_Clip, v2_Clip };
+        List<Vector4> clippedVertices1 = ClipWithPlane(vertices, ClipPlane.Near);
+        List<Vector4> clippedVertices2 = ClipWithPlane(clippedVertices1, ClipPlane.Far);
+        List<Vector4> clippedVertices3 = ClipWithPlane(clippedVertices2, ClipPlane.Left);
+        List<Vector4> clippedVertices4 = ClipWithPlane(clippedVertices3, ClipPlane.Right);
+        List<Vector4> clippedVertices5 = ClipWithPlane(clippedVertices4, ClipPlane.Top);
+        List<Vector4> clippedVertices6 = ClipWithPlane(clippedVertices5, ClipPlane.Bottom);
+
+        if (clippedVertices6.Count < 3)
             return;
 
-        // Cull,Unity中三角形顺时针为正面,向量叉乘的方向在右手坐标系中使用右手定则确定，在左手坐标系中使用左手定则确定。
-        // 这里需要注意不管是在右手坐标系还是左手坐标系，叉乘向量的数值结果是一样的，只不过表示的绝对向量方向不同，Unity中是左手坐标系，遵循左手定则。
-        if (m_CullType == CullType.Back)
+        // 组装三角形
+        for(int iClippedVertex = 0; iClippedVertex < clippedVertices6.Count - 2; iClippedVertex++)
         {
-            Vector3 v0v1 = v1_NDC - v0_NDC;
-            Vector3 v0v2 = v2_NDC - v0_NDC;
+            int index0 = 0;
+            int index1 = iClippedVertex + 1;
+            int index2 = iClippedVertex + 2;
 
-            if (Vector3.Cross(v0v1, v0v2).z > 0)
-                return;
-        }
-        if (m_CullType == CullType.Front)
-        {
-            Vector3 v0v1 = v1_NDC - v0_NDC;
-            Vector3 v0v2 = v2_NDC - v0_NDC;
+            Vector4 tempV0_Clip = clippedVertices6[index0];
+            Vector4 tempV1_Clip = clippedVertices6[index1];
+            Vector4 tempV2_Clip = clippedVertices6[index2];
 
-            if (Vector3.Cross(v0v1, v0v2).z < 0)
-                return;
-        }
+            // 透视除法
+            Vector3 v0_NDC = new Vector3(tempV0_Clip.x / tempV0_Clip.w, tempV0_Clip.y / tempV0_Clip.w, tempV0_Clip.z / tempV0_Clip.w);
+            Vector3 v1_NDC = new Vector3(tempV1_Clip.x / tempV1_Clip.w, tempV1_Clip.y / tempV1_Clip.w, tempV1_Clip.z / tempV1_Clip.w);
+            Vector3 v2_NDC = new Vector3(tempV2_Clip.x / tempV2_Clip.w, tempV2_Clip.y / tempV2_Clip.w, tempV2_Clip.z / tempV2_Clip.w);
 
-        // Viewport
-        Vector3 v0_screen = new Vector3((v0_NDC.x + 1) / 2 * width, (v0_NDC.y + 1) / 2 * height, 0);
-        Vector3 v1_screen = new Vector3((v1_NDC.x + 1) / 2 * width, (v1_NDC.y + 1) / 2 * height, 0);
-        Vector3 v2_screen = new Vector3((v2_NDC.x + 1) / 2 * width, (v2_NDC.y + 1) / 2 * height, 0);
 
-        // Triagnle Bounding Box
-        Vector2Int bboxMin = new Vector2Int((int)Mathf.Min(Mathf.Min(v0_screen.x, v1_screen.x), v2_screen.x), 
-                                            (int)Mathf.Min(Mathf.Min(v0_screen.y, v1_screen.y), v2_screen.y));
-        Vector2Int bboxMax = new Vector2Int((int)(Mathf.Max(Mathf.Max(v0_screen.x, v1_screen.x), v2_screen.x) + 0.5f),
-                                            (int)(Mathf.Max(Mathf.Max(v0_screen.y, v1_screen.y), v2_screen.y) + 0.5f));
-
-        for(int i = bboxMin.x;i < bboxMax.x;i++)
-        {
-            for(int j = bboxMin.y;j < bboxMax.y;j++)
+            // Cull,Unity中三角形顺时针为正面,向量叉乘的方向在右手坐标系中使用右手定则确定，在左手坐标系中使用左手定则确定。
+            // 这里需要注意不管是在右手坐标系还是左手坐标系，叉乘向量的数值结果是一样的，只不过表示的绝对向量方向不同，Unity中是左手坐标系，遵循左手定则。
+            if (m_CullType == CullType.Back)
             {
-                // Edge Function 
-                if (IsInsideTriangle(i + 0.5f ,j + 0.5f, v0_screen, v1_screen, v2_screen))
+                Vector3 v0v1 = v1_NDC - v0_NDC;
+                Vector3 v0v2 = v2_NDC - v0_NDC;
+
+                if (Vector3.Cross(v0v1, v0v2).z > 0)
+                    return;
+            }
+            if (m_CullType == CullType.Front)
+            {
+                Vector3 v0v1 = v1_NDC - v0_NDC;
+                Vector3 v0v2 = v2_NDC - v0_NDC;
+
+                if (Vector3.Cross(v0v1, v0v2).z < 0)
+                    return;
+            }
+
+            // Viewport
+            Vector3 v0_screen = new Vector3((v0_NDC.x + 1) / 2 * width, (v0_NDC.y + 1) / 2 * height, 0);
+            Vector3 v1_screen = new Vector3((v1_NDC.x + 1) / 2 * width, (v1_NDC.y + 1) / 2 * height, 0);
+            Vector3 v2_screen = new Vector3((v2_NDC.x + 1) / 2 * width, (v2_NDC.y + 1) / 2 * height, 0);
+
+            // Triagnle Bounding Box
+            Vector2Int bboxMin = new Vector2Int((int)Mathf.Min(Mathf.Min(v0_screen.x, v1_screen.x), v2_screen.x),
+                                                (int)Mathf.Min(Mathf.Min(v0_screen.y, v1_screen.y), v2_screen.y));
+            Vector2Int bboxMax = new Vector2Int((int)(Mathf.Max(Mathf.Max(v0_screen.x, v1_screen.x), v2_screen.x) + 0.5f),
+                                                (int)(Mathf.Max(Mathf.Max(v0_screen.y, v1_screen.y), v2_screen.y) + 0.5f));
+
+            for (int i = bboxMin.x; i < bboxMax.x; i++)
+            {
+                for (int j = bboxMin.y; j < bboxMax.y; j++)
                 {
-                    // 计算重心坐标
-                    Vector3 barycentricCoordinate = BarycentricCoordinate(i + 0.5f, j + 0.5f, v0_screen, v1_screen, v2_screen);
-
-                    // 计算该像素在观察空间的深度值:观察空间中的z的倒数在屏幕空间是线性的，所以用重心坐标可以插值z的倒数，再进行转换求出该像素的观察空间中的深度
-                    float z_view = 1.0f / (barycentricCoordinate.x /  v0_view.z + barycentricCoordinate.y / v1_view.z + barycentricCoordinate.z / v2_view.z);
-                    // 插值投影后的z，首先投影后的z除以观察空间的z，用重心坐标插值后，再乘该像素观察空间的z
-                    float z_interpolated = z_view * (v0_NDC.z / v0_view.z * barycentricCoordinate.x + 
-                                                     v1_NDC.z / v1_view.z * barycentricCoordinate.y +
-                                                     v2_NDC.z / v2_view.z * barycentricCoordinate.z);
-
-
-                    // Early-Z :)
-                    // 存储到Depth Buffer，从[-1,1]变换到[0,1]
-                    float z01 = (z_interpolated + 1) / 2f;
-                    if (z01 > m_FrameBuffer.GetDepth(i, j))
-                        continue;
-                    else
-                        m_FrameBuffer.SetDepth(i, j, z01);
-
-                    // 插值顶点属性：颜色、uv、法线、副切线、世界坐标
-                    Color color = z_view * (v0.color / v0_view.z * barycentricCoordinate.x +
-                                            v1.color / v1_view.z * barycentricCoordinate.y +
-                                            v2.color / v2_view.z * barycentricCoordinate.z);
-                    Vector2 uv = z_view * (v0.uv / v0_view.z * barycentricCoordinate.x +
-                                           v1.uv / v1_view.z * barycentricCoordinate.y +
-                                           v2.uv / v2_view.z * barycentricCoordinate.z);
-                    Vector3 normal = z_view * (v0.normal / v0_view.z * barycentricCoordinate.x +
-                                               v1.normal / v1_view.z * barycentricCoordinate.y +
-                                               v2.normal / v2_view.z * barycentricCoordinate.z);
-                    Vector4 tangent = z_view * (v0.tangent / v0_view.z * barycentricCoordinate.x +
-                                                v1.tangent / v1_view.z * barycentricCoordinate.y +
-                                                v2.tangent / v2_view.z * barycentricCoordinate.z);
-                    Vector3 worldPos = z_view * (v0_world / v0_view.z * barycentricCoordinate.x +
-                                                 v1_world / v1_view.z * barycentricCoordinate.y +
-                                                 v2_world / v2_view.z * barycentricCoordinate.z);
-
-                    Color col = Color.black;
-                    if(m_CurShader != null)
+                    // Edge Function 
+                    if (IsInsideTriangle(i + 0.5f, j + 0.5f, v0_screen, v1_screen, v2_screen))
                     {
-                        m_CurShader.modelMatrix = m_Model;
+                        // 计算重心坐标
+                        Vector3 barycentricCoordinate = BarycentricCoordinate(i + 0.5f, j + 0.5f, v0_screen, v1_screen, v2_screen);
 
-                        m_CurShader.vertexColor = color;
-                        m_CurShader.uv = uv;
-                        m_CurShader.normal = normal;
-                        m_CurShader.tangent = tangent;
-                        
-                        if(m_CurShader is BlinnPhongShader)
+                        // 计算该像素在观察空间的深度值:观察空间中的z的倒数在屏幕空间是线性的，所以用重心坐标可以插值z的倒数，再进行转换求出该像素的观察空间中的深度
+                        float z_view = 1.0f / (barycentricCoordinate.x / tempV0_Clip.w + barycentricCoordinate.y / tempV1_Clip.w + barycentricCoordinate.z / tempV2_Clip.w);
+                        // 插值投影后的z，首先投影后的z除以观察空间的z，用重心坐标插值后，再乘该像素观察空间的z
+                        float z_interpolated = z_view * (v0_NDC.z / tempV0_Clip.w * barycentricCoordinate.x +
+                                                         v1_NDC.z / tempV1_Clip.w * barycentricCoordinate.y +
+                                                         v2_NDC.z / tempV2_Clip.w * barycentricCoordinate.z);
+
+
+                        // Early-Z :)
+                        // 存储到Depth Buffer，从[-1,1]变换到[0,1]
+                        float z01 = (z_interpolated + 1) / 2f;
+                        if (z01 > m_FrameBuffer.GetDepth(i, j))
+                            continue;
+                        else
+                            m_FrameBuffer.SetDepth(i, j, z01);
+
+                        // TODO: 裁剪后的顶点属性还没有插值
+                        // 插值顶点属性：颜色、uv、法线、副切线、世界坐标
+                        Color color = z_view * (v0.color / v0_view.z * barycentricCoordinate.x +
+                                                v1.color / v1_view.z * barycentricCoordinate.y +
+                                                v2.color / v2_view.z * barycentricCoordinate.z);
+                        Vector2 uv = z_view * (v0.uv / v0_view.z * barycentricCoordinate.x +
+                                               v1.uv / v1_view.z * barycentricCoordinate.y +
+                                               v2.uv / v2_view.z * barycentricCoordinate.z);
+                        Vector3 normal = z_view * (v0.normal / v0_view.z * barycentricCoordinate.x +
+                                                   v1.normal / v1_view.z * barycentricCoordinate.y +
+                                                   v2.normal / v2_view.z * barycentricCoordinate.z);
+                        Vector4 tangent = z_view * (v0.tangent / v0_view.z * barycentricCoordinate.x +
+                                                    v1.tangent / v1_view.z * barycentricCoordinate.y +
+                                                    v2.tangent / v2_view.z * barycentricCoordinate.z);
+                        Vector3 worldPos = z_view * (v0_world / v0_view.z * barycentricCoordinate.x +
+                                                     v1_world / v1_view.z * barycentricCoordinate.y +
+                                                     v2_world / v2_view.z * barycentricCoordinate.z);
+
+                        Color col = Color.black;
+                        if (m_CurShader != null)
                         {
-                            BlinnPhongShader blinnPhongShader = (BlinnPhongShader)m_CurShader;
-                            blinnPhongShader.worldPos = worldPos;
-                            foreach (var light in m_Lights)
-                            {
-                                blinnPhongShader.lightColor = light.color;
-                                blinnPhongShader.lightIntensity = light.intensity;
-                                blinnPhongShader.lightPos = light.transform.position;
+                            m_CurShader.modelMatrix = m_Model;
 
-                                col += blinnPhongShader.FragmentShade();
+                            m_CurShader.vertexColor = color;
+                            m_CurShader.uv = uv;
+                            m_CurShader.normal = normal;
+                            m_CurShader.tangent = tangent;
+
+                            if (m_CurShader is BlinnPhongShader)
+                            {
+                                BlinnPhongShader blinnPhongShader = (BlinnPhongShader)m_CurShader;
+                                blinnPhongShader.worldPos = worldPos;
+                                foreach (var light in m_Lights)
+                                {
+                                    blinnPhongShader.lightColor = light.color;
+                                    blinnPhongShader.lightIntensity = light.intensity;
+                                    blinnPhongShader.lightPos = light.transform.position;
+
+                                    col += blinnPhongShader.FragmentShade();
+                                }
                             }
+
                         }
 
+                        m_FrameBuffer.SetColor(i, j, col);
                     }
-
-                    m_FrameBuffer.SetColor(i, j, col);
                 }
             }
         }

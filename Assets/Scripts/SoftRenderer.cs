@@ -122,7 +122,7 @@ public class SoftRenderer : MonoBehaviour
     {
         // Clear
         m_Rasterizer.Clear(ClearMask.COLOR | ClearMask.DEPTH);
-
+        
         // View 
         m_Rasterizer.SetView(m_Camera.transform.worldToLocalMatrix);
 
